@@ -1,5 +1,7 @@
 from pylops.basicoperators import Diagonal
 from pylops.basicoperators import VStack
+import numpy as np
+from pylops.optimization.leastsquares import RegularizedInversion
 
 def IRLS(Op, data, nouter, ninner, epsR=1e-6, epsI=1, x0=None):
     

@@ -1,5 +1,5 @@
 import numpy as np
-from pylops import FISTA
+from pylops.optimization.sparsity import FISTA
 from pylops import LinearOperator
 from scipy.sparse.linalg import lobpcg as sp_lobpcg
 from scipy.sparse.linalg import eigsh as sp_eigsh
