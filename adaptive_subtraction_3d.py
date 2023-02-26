@@ -2,7 +2,7 @@ import numpy as np
 import pylops
 from pylops.optimization.solver import lsqr
 from ADMM import ADMM
-def adaptive_subtraction_3d(data, multiples, nfilt, solver, nwin=(30,150)):
+def adaptive_subtraction_3d(data, multiples, nfilt, solver, solver_dict, nwin=(30,150)):
     """Applies adaptive subtraction to all seismic gathers of a cube.
 
             Parameters
@@ -15,6 +15,8 @@ def adaptive_subtraction_3d(data, multiples, nfilt, solver, nwin=(30,150)):
                 Size of the filter
             solver :{“lsqr”, “ADMM”}
                 Optimizer to find best filter
+            solver_dict :obj:`dict`
+                Dictionary with solver parameters
             nwin : :obj:`tuple`, optional
                 Number of samples of window for patching data
 
@@ -82,9 +84,12 @@ def adaptive_subtraction_3d(data, multiples, nfilt, solver, nwin=(30,150)):
             CopStack = pylops.VStack(CopStack)
             # solve for the filter
             if solver=='lsqr':
-                filt_est = lsqr(CopStack, dataStack, x0=np.zeros(nfilt), niter=15)[0]
+                filt_est = lsqr(CopStack, dataStack, x0=solver_dict['x0'], niter=solver_dict['niter'], damp=solver_dict['damp'])[0]
             elif solver=='ADMM':
-                filt_est = ADMM(CopStack, dataStack, rho=1e0, nouter=2000, ninner=5, eps=0e0)
+                filt_est = ADMM(CopStack, dataStack, rho=solver_dict['rho'], nouter=solver_dict['nouter'], ninner=solver_dict['ninner'], eps=solver_dict['eps'])
+            # clip filter if neccesary
+            if max(abs(filt_est)) > 10:
+                filt_est = np.ones(nfilt)
             multiple_est[i] = (CopStack * filt_est).T  # Make sure it's in (nr, nt) format before patching back!
             primary_est[i] = (dataStack - multiple_est[i].T).T
         # Glue the patches back together
