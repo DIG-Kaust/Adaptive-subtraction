@@ -1,4 +1,4 @@
-![LOGO](https://github.com/DIG-Kaust/Adaptive-subtraction/blob/main/logo.png)
+![LOGO](https://github.com/DIG-Kaust/Adaptive-subtraction/blob/master/logo.png)
 
 Reproducible material to perform adaptive subtraction on seismic data given initial estimate of multiples. It's objective is to use the ADMM 
 algorithm to solve the optimization problem of the matching-filter approach posed as an L1-L1 regression problem.
