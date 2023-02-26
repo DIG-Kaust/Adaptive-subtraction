@@ -18,7 +18,7 @@ def ADMM(Op, b, rho, nouter, ninner, eps, x_true=None, decay=None):
     ----------
     Op : :obj:`pylops.LinearOperator`
         Linear operator
-    data : :obj:`np.ndarray`
+    b : :obj:`np.ndarray`
         data
     rho : :obj:`float`
         penalty parameter of the augmented Lagrangian term
