@@ -1,9 +1,10 @@
 import numpy as np
+import cupy as cp
+from pylops.utils.backend import get_array_module, get_module_name, to_numpy
 from pylops.optimization.sparsity import FISTA
 from pylops import LinearOperator
 from scipy.sparse.linalg import lobpcg as sp_lobpcg
-from scipy.sparse.linalg import eigsh as sp_eigsh
-
+from pylops.optimization.eigs import power_iteration
 
 def prox_data(x, rho):
     return np.maximum( np.abs( x ) - rho, 0. ) * np.sign(x)
@@ -27,7 +28,7 @@ def ADMM(Op, b, rho, nouter, ninner, eps, x_true=None, decay=None):
     ninner : :obj:`int`
         Number of inner iterations
     eps : :obj:`float`
-        Lagrange multiplier
+        Regularization parameter
     x_true : :obj:`np.ndarray`, optional
         True solution (only used to compute the error through iterations)
 
@@ -40,18 +41,26 @@ def ADMM(Op, b, rho, nouter, ninner, eps, x_true=None, decay=None):
 
     """
     n = Op.shape[0]
-    z = np.zeros(n)
-    u = np.zeros(n)
-    x = np.zeros(Op.shape[1])
+    # ncp is now either np or cp
+    ncp = get_array_module(b)
+    z = ncp.zeros(n)
+    u = ncp.zeros(n)
+    x = ncp.zeros(Op.shape[1])
     Op1 = LinearOperator(Op.H * Op, explicit=False)
-    X = np.random.rand(Op1.shape[0], 1).astype(Op1.dtype)
-    maxeig = sp_lobpcg(Op1, X=X, maxiter=10, tol=1e-10)[0][0]
+    if get_module_name(ncp) == "numpy":
+        X = ncp.random.rand(Op1.shape[0], 1).astype(Op1.dtype)
+        maxeig = sp_lobpcg(Op1, X=X, maxiter=10, tol=1e-10)[0][0]
+    else:
+        maxeig = np.abs(
+            power_iteration(
+                Op1, niter=10, tol=1e-10, dtype=Op1.dtype, backend="cupy"
+            )[0]
+        )
+    alpha = 1.0 / float(maxeig)
     if decay is None:
-        decay = np.ones(nouter)
-    # maxeig = sp_eigsh(Op1, k=1, ncv=10, maxiter=10, tol=1e-2)[0]
-    alpha = 1.0 / maxeig
+        decay = ncp.ones(nouter)
     if x_true is not None:
-        cost = np.zeros(nouter)
+        cost = ncp.zeros(nouter)
     for iiter in range(nouter):
         x = FISTA(Op, b + z - u, ninner, eps/rho, alpha=alpha, x0=x)[0]
         z = prox_data(Op * x - b + u, 1 / ( rho * decay[iiter] ))
