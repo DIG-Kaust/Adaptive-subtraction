@@ -75,9 +75,9 @@ def ADMM(Op, b, rho, nouter, ninner, eps, x_true=None, decay=None):
 
 def ADMM_curvelet(A, b, rho, outer_its, inner_its, eps):
     m, n = A.shape
-    z = np.zeros(m)
-    u = np.zeros(m)
-    x = np.zeros(n)
+    z = ncp.zeros(m)
+    u = ncp.zeros(m)
+    x = ncp.zeros(n)
     for i in range(outer_its):
         x = FISTA(A, b + z - u, inner_its, eps/rho, alpha=1, x0=x, show=False)[0]
         z = prox_data(A * x + u - b, 1/rho)

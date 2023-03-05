@@ -8,11 +8,23 @@ dependencies:
   - pip
   - numpy>=1.15.0
   - scipy>=1.4.0
-  - pandas
+  - pyfftw
+  - pywavelets
   - matplotlib
   - ipython
   - jupyter
-  - pylops==1.18.2
-  - tqdm
+  - pytest
+  - Sphinx
+  - numpydoc
+  - numba
+  - icc_rt
   - pip:
+    - scikit-fmm
+    - spgl1
+    - pytest-runner
+    - setuptools_scm
+    - sphinx-rtd-theme
+    - sphinx-gallery
+    - nbsphinx
+    - image
     - segyio
