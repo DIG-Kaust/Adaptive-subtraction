@@ -1,4 +1,4 @@
-![LOGO](https://github.com/DIG-Kaust/Adaptive-subtraction/blob/master/logo.png)
+![LOGO](https://github.com/DIG-Kaust/Adaptive-subtraction/blob/master/figures/logo.png)
 
 Reproducible material to perform adaptive subtraction on seismic data given initial estimate of multiples. It's objective is to use the ADMM 
 algorithm to solve the optimization problem of the matching-filter approach posed as an L1-L1 regression problem.
@@ -21,9 +21,8 @@ as in Guitton et al., 2004;
 Voring data and comparing results of different algorithms;
 - :orange_book: ``Adaptive_subtraction.ipynb``: notebook applying adaptive subtraction on a complete shot gather by patching data and doing
 qc on common channel gathers obtained with the lsqr on all shots;
-- :orange_book: ``Adaptive_subtraction_tests.ipynb``: notebook performing several tests varying input parameters of the ADMM applied 
-over all shot gathers and then plotting common channel gathers qc results;
-
+- :orange_book: ``Adaptive_subtraction_tests.ipynb``: notebook performing several tests changing only one input parameter and fixing the others;
+- :orange_book: ``Adaptive_subtraction_tests_2.ipynb``: notebook performing several tests changing only two input parameters and fixing the others;
 
 ## Scripts
 The following scripts are provided:
@@ -32,11 +31,6 @@ The following scripts are provided:
 - :orange_book: ``adaptive_subtraction_3d.py``: script performing adaptive subtraction on a cube of shot gathers.
 - :orange_book: ``adaptive_subtraction_qc.py``: script doing qc on common channel gathers by plotting correlation of traces and estimating
 amplitude average of multiples present in arrays of total data and primaries data.
-
-The last script require an input ``lsqr.npz`` file containing the following fields. 
-
-- :card_index: ``multiples_lsqr``: 3-dimensional corrected multiples data using lsqr of size ``ns x nr x nt``.
-- :card_index: ``primaries_lsqr``: 3-dimensional corrected primaries data using lsqr of size ``ns x nr x nt``.
 
 
 ## Getting started :space_invader: :robot:
