@@ -38,17 +38,29 @@ def adaptive_subtraction_3d_parallel(data, multiples, nfilt, solver, solver_dict
             Processes are performed in parallel in the CPU.
             """
 
-    ns, nr, nt = data.shape[0], data.shape[1],  data.shape[2] #shots, receivers, time samples
     ncp = get_array_module(data)
     # Create output cubes full of zeros+
+    nwin = nwin  # number of samples of window
+    nover = (nwin[0] // 2, nwin[1] // 2)  # number of samples of overlapping part of window
+
+    # reshape input data so it fits the patching
+    ns = data.shape[0]  #shots, receivers, time samples
+    nr = (nover[0]) * (data.shape[1] // nover[0])
+    nt = (nover[1]) * (data.shape[2] // nover[1])
+
     primaries_cube = ncp.zeros((ns, nr, nt))
     multiples_cube = ncp.zeros((ns, nr, nt))
 
+    num_patches = (nr // (nwin[0] // 2) - 1) * (nt // (nwin[1] // 2) - 1)
+    filt_cube = ncp.zeros((ns, num_patches, nfilt))
+
     for shot_num in range(ns):
 
-        primary_est, multiple_est = adaptive_subtraction_2d_parallel(data[shot_num], multiples[shot_num], nfilt, solver,
+        primary_est, multiple_est, filts_est = adaptive_subtraction_2d_parallel(data[shot_num], multiples[shot_num], nfilt, solver,
                                                                      solver_dict, nwin=nwin, clipping=clipping)
+
         primaries_cube[shot_num] = primary_est
         multiples_cube[shot_num] = multiple_est
+        filt_cube[shot_num] = filts_est
 
-    return primaries_cube, multiples_cube
+    return primaries_cube, multiples_cube, filt_cube

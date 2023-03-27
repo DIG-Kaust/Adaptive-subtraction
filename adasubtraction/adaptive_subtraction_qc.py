@@ -85,7 +85,6 @@ def adaptive_subtraction_qc(data, primaries, multiples, gather_num, dt=0.004, pl
 
     if plot:
         # Plot correlogram of total data and primaries
-        gather_num += 1 # plotting
         vmax = 0.006 * np.amax(data_corr_traces) ; vmin = -vmax
         xmin = 627; xmax = 1025 ; ymin = -(nt-1)*dt ; ymax = (nt-1)*dt
         fig1, axs1 = plt.subplots(1, 2, figsize=(10,6),sharey=True)
