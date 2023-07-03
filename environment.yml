@@ -4,27 +4,21 @@ channels:
   - conda-forge
   - numba
 dependencies:
-  - python>=3.6.4
-  - pip
-  - numpy>=1.15.0
+  - python>=3.9.0
+  - numpy==1.23.1
   - scipy>=1.4.0
-  - pyfftw
-  - pywavelets
+  - pylops==1.18.3
+  - pip
+  - cupy
   - matplotlib
   - ipython
+  - qtpy
   - jupyter
-  - pytest
-  - Sphinx
-  - numpydoc
-  - numba
-  - icc_rt
+  - tqdm
   - pip:
-    - scikit-fmm
-    - spgl1
-    - pytest-runner
     - setuptools_scm
-    - sphinx-rtd-theme
-    - sphinx-gallery
-    - nbsphinx
-    - image
+    - kymatio 
+    - devito>=4.7.1
+    - torch>=2.0.1 
     - segyio
+  
