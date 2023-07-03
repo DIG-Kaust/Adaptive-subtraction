@@ -1,27 +1,31 @@
 import numpy as np
 import pylops
 import cupy as cp
+import multiprocessing as mp
 from pylops.utils.backend import get_array_module
 from pylops.optimization.solver import lsqr
-from ADMM import ADMM
-import multiprocessing as mp
+from pylops import LinearOperator
+from adasubtraction.ADMM import ADMM
+
+def prox_data(x, rho):
+    return np.maximum( np.abs( x ) - rho, 0. ) * np.sign(x)
 
 def adaptive_subtraction(data_patched, multiples_patched, nwin, solver, nfilt, solver_dict, clipping=False):
     ncp = get_array_module(multiples_patched)
-    data_patch_i = ncp.reshape(data_patched, (nwin[0], nwin[1]))
-    multiple_patch_i = ncp.reshape(multiples_patched, (nwin[0], nwin[1]))
+    data_patch_n = ncp.reshape(data_patched, (nwin[0], nwin[1]))
+    multiple_patch_n = ncp.reshape(multiples_patched, (nwin[0], nwin[1]))
     CopStack = []
 
     # construct the convolutional operator
     for j in range(nwin[0]):
-        C = pylops.utils.signalprocessing.convmtx(ncp.asarray(multiple_patch_i[j]), nfilt)
+        C = pylops.utils.signalprocessing.convmtx(ncp.asarray(multiple_patch_n[j]), nfilt)
         Cop = pylops.basicoperators.MatrixMult(C[nfilt // 2:-(nfilt // 2)])
         CopStack.append(Cop)
     CopStack = pylops.VStack(CopStack)
-    dataStack = data_patch_i.ravel()
+    dataStack = data_patch_n.ravel()
 
     # if no multiples present put filter to 1
-    no_multiples = multiple_patch_i == 0
+    no_multiples = multiple_patch_n == 0
     if no_multiples.all():
         filt_est = ncp.ones(nfilt)
     else:
@@ -30,7 +34,6 @@ def adaptive_subtraction(data_patched, multiples_patched, nwin, solver, nfilt, s
             filt_est = lsqr(CopStack, dataStack, x0=ncp.asarray(solver_dict['x0']), niter=solver_dict['niter'],
                             damp=solver_dict['damp'])[0]
         elif solver == 'ADMM':
-            # print('zeroes:' , dataStack.size - np.count_nonzero(dataStack))
             filt_est = ADMM(CopStack, dataStack, rho=solver_dict['rho'], nouter=solver_dict['nouter'],
                             ninner=solver_dict['ninner'], eps=solver_dict['eps'])
 
@@ -42,7 +45,7 @@ def adaptive_subtraction(data_patched, multiples_patched, nwin, solver, nfilt, s
 
     return primary_est, multiple_est, filt_est
 
-def adasubtraction_parallel(data, multiples, nfilt, solver, solver_dict, nwin, clipping=False):
+def adasubtraction_parallel(data, multiples, nfilt, solver, solver_dict, nwin, cpu_num, clipping=False):
     """Applies adaptive subtraction to all seismic gathers of a cube.
 
             Parameters
@@ -57,22 +60,24 @@ def adasubtraction_parallel(data, multiples, nfilt, solver, solver_dict, nwin, c
                 Optimizer to find best filter
             solver_dict :obj:`dict`
                 Dictionary with solver parameters
-            nwin : :obj:`tuple`, optional
+            nwin : :obj:`tuple`
                 Number of samples of window for patching data. Must be even numbers.
-            clipping : :obj:`boolean`
+            cpu_num : :obj:`int`
+                Total number of cpu cores employed
+            clipping : :obj:`boolean`. Default to False
                 Clip filters that exceed 10 to 1
 
             Returns
             -------
-            primary_est : :obj:`np.ndarray`
+            primaries_est : :obj:`np.ndarray`
                 2d np.array with estimated primaries
-            multiple_est : :obj:`np.ndarray`
+            multiples_est : :obj:`np.ndarray`
                 2d np.array with estimated multiples
-            filt_est : :obj:`np.ndarray`
+            filts_est : :obj:`np.ndarray`
                 2d np.array with estimated filters
             Note
             -------
-            Processes are performed in parallel in the CPU.
+            Processes are performed in parallel with different the CPU cores.
             """
 
     ncp = get_array_module(data)
@@ -107,32 +112,28 @@ def adasubtraction_parallel(data, multiples, nfilt, solver, solver_dict, nwin, c
     num_patches = nwins[0] * nwins[1]
     data_patched = ncp.reshape(data_patched, (num_patches, nwin[0] * nwin[1]))
     multiples_patched = ncp.reshape(multiples_patched, (num_patches, nwin[0] * nwin[1]))
-    # primary_est = ncp.zeros_like(data_patched)
-    # multiple_est = ncp.zeros_like(multiples_patched)
 
-    nproc = 15
+    nproc = cpu_num
     pool = mp.Pool(processes=nproc)
-    out = pool.starmap(adaptive_subtraction, [(data_patched[i], multiples_patched[i], nwin, solver, nfilt,
-                                               solver_dict, clipping) for i in range(num_patches)])
-    primary_est = [out[i][0] for i in range(num_patches)]
+    out = pool.starmap(adaptive_subtraction, [(data_patched[n], multiples_patched[n], nwin, solver, nfilt,
+                                               solver_dict, clipping) for n in range(num_patches)])
+    primary_est = [out[n][0] for n in range(num_patches)]
     primary_est = np.array(primary_est)
-    multiple_est = [out[i][1] for i in range(num_patches)]
+    multiple_est = [out[n][1] for n in range(num_patches)]
     multiple_est = np.array(multiple_est)
-    filts_est = [out[i][2] for i in range(num_patches)]
+    filts_est = [out[n][2] for n in range(num_patches)]
     filts_est = np.array(filts_est)
-    # diffs = [out[i][3] for i in range(num_patches)]
-    # diffs = np.array(diffs)
 
     # Glue the patches back together
     # first put the arrays back on the CPU
     multiple_est = cp.asnumpy(multiple_est)
     primary_est = cp.asnumpy(primary_est)
-    primary_est = PatchOp * primary_est.ravel()
-    multiple_est = PatchOp * multiple_est.ravel()
-    primary_est = np.reshape(primary_est, (nr, nt))
-    multiple_est = np.reshape(multiple_est, (nr, nt))
+    primaries_est = PatchOp * primary_est.ravel()
+    multiples_est = PatchOp * multiple_est.ravel()
+    primaries_est = np.reshape(primaries_est, (nr, nt))
+    multiples_est = np.reshape(multiples_est, (nr, nt))
 
-    return primary_est, multiple_est, filts_est
+    return primaries_est, multiples_est, filts_est
 
 
 

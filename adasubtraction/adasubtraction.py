@@ -4,17 +4,17 @@ import cupy as cp
 from pylops.utils.backend import get_array_module
 from pylops import LinearOperator
 from pylops.optimization.solver import lsqr
-from ADMM import ADMM
+from adasubtraction.ADMM import ADMM
 
 def adasubtraction(data, multiples, nfilt, solver, solver_dict, nwin=(30,150),  clipping=False):
-    """Applies adaptive subtraction to all seismic gathers of a cube.
+    """Applies adaptive subtraction to a shot gather using predicted multiples.
 
             Parameters
             ----------
             data : :obj:`np.ndarray`
                 Total data shot gather
             multiples_init : :obj:`np.ndarray`
-                Initial estimated multiples
+                Initial multiple prediction
             nfilt : :obj:`int`
                 Size of the filter
             solver :{“lsqr”, “ADMM”}
@@ -28,10 +28,12 @@ def adasubtraction(data, multiples, nfilt, solver, solver_dict, nwin=(30,150),  
 
             Returns
             -------
-            primary_est : :obj:`np.ndarray`
+            primaries_est : :obj:`np.ndarray`
                 2d np.ndarray with estimated primaries
-            multiple_est : :obj:`np.ndarray`
+            multiples_est : :obj:`np.ndarray`
                 2d np.ndarray with estimated multiples
+            filts_est : :obj:`np.ndarray`
+                2d np.array with estimated filters
 
             """
     ncp = get_array_module(data)
@@ -70,7 +72,6 @@ def adasubtraction(data, multiples, nfilt, solver, solver_dict, nwin=(30,150),  
     multiple_est = ncp.zeros_like(multiples_patched)
     filts_est = ncp.zeros((num_patches, nfilt))
 
-
     for i in range(num_patches):
         data_patch_i = ncp.reshape(data_patched[i], (nwin[0], nwin[1]))
         multiple_patch_i = ncp.reshape(multiples_patched[i], (nwin[0], nwin[1]))
@@ -78,7 +79,7 @@ def adasubtraction(data, multiples, nfilt, solver, solver_dict, nwin=(30,150),  
 
         # construct the convolutional operator
         for j in range(nwin[0]):
-            C = pylops.utils.signalprocessing.convmtx(multiple_patch_i[j], nfilt)
+            C = pylops.utils.signalprocessing.convmtx(ncp.asarray(multiple_patch_i[j]), nfilt)
             Cop = pylops.basicoperators.MatrixMult(C[nfilt // 2:-(nfilt // 2)])
             CopStack.append(Cop)
 
@@ -106,9 +107,9 @@ def adasubtraction(data, multiples, nfilt, solver, solver_dict, nwin=(30,150),  
     # first put the arrays back on the CPU
     multiple_est = cp.asnumpy(multiple_est) 
     primary_est = cp.asnumpy(primary_est)
-    primary_est = PatchOp * primary_est.ravel()
-    multiple_est = PatchOp * multiple_est.ravel()
-    primary_est = np.reshape(primary_est, (nr, nt))
-    multiple_est = np.reshape(multiple_est, (nr, nt))
+    primaries_est = PatchOp * primary_est.ravel()
+    multiples_est = PatchOp * multiple_est.ravel()
+    primaries_est = np.reshape(primaries_est, (nr, nt))
+    multiples_est = np.reshape(multiples_est, (nr, nt))
 
-    return primary_est, multiple_est, filts_est
+    return primaries_est, multiples_est, filts_est

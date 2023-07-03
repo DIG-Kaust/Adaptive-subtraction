@@ -1,10 +1,10 @@
 import numpy as np
 import pylops
 import cupy as cp
+import multiprocessing as mp
 from pylops.utils.backend import get_array_module
 from pylops.optimization.solver import lsqr
-from ADMM import ADMM
-import multiprocessing as mp
+from adasubtraction.ADMM import ADMM
 
 def adaptive_subtraction(data_patched, multiples_patched, nwin, solver, nfilt, solver_dict, clipping):
     ncp = get_array_module(multiples_patched)
@@ -53,7 +53,7 @@ def adaptive_subtraction(data_patched, multiples_patched, nwin, solver, nfilt, s
 
     return primary_est, multiple_est, filt_est
 
-def adasubtraction_mult(data, multiples, nfilt, solver, solver_dict, nwin=(30, 150), clipping=False):
+def adasubtraction_mult(data, multiples, nfilt, solver, solver_dict, nwin, cpu_num, clipping=False):
     """Applies adaptive subtraction to estimate primaries from -i to +i sequential predicted multiples.
 
             Parameters
@@ -71,21 +71,22 @@ def adasubtraction_mult(data, multiples, nfilt, solver, solver_dict, nwin=(30, 1
                 Dictionary with solver parameters
             nwin : :obj:`tuple`, optional
                 Number of samples of window for patching data. Must be even numbers.
+            cpu_num : :obj:`int`
+                Total number of cpu cores employed
             clipping : :obj:`boolean`
                 Clip filters that exceed 10 to 1
 
             Returns
             -------
-            primary_est : :obj:`np.ndarray`
+            primaries_est : :obj:`np.ndarray`
                 2d np.array with estimated primaries
-            multiple_est : :obj:`np.ndarray`
+            multiples_est : :obj:`np.ndarray`
                 2d np.array with estimated multiples
-            filt_est : :obj:`np.ndarray`
+            filts_est : :obj:`np.ndarray`
                 2d np.array with estimated filters
             Note
             -------
-            Processes (15) are performed in parallel in the CPU. To perform adaptive subtraction only
-            using one predicted multiples, see :func:`adasubtraction_parallel`.
+            Processes are performed in parallel with different CPU cores.
             """
 
     ncp = get_array_module(data)
@@ -139,19 +140,19 @@ def adasubtraction_mult(data, multiples, nfilt, solver, solver_dict, nwin=(30, 1
     primary_est = np.array(primary_est)
     multiple_est = [out[n][1] for n in range(num_patches)]
     multiple_est = np.array(multiple_est)
-    filt_est = [out[n][2] for n in range(num_patches)]
-    filt_est = np.array(filt_est)
+    filts_est = [out[n][2] for n in range(num_patches)]
+    filts_est = np.array(filts_est)
 
     # Glue the patches back together
     # first put the arrays back on the CPU
     multiple_est = cp.asnumpy(multiple_est)
     primary_est = cp.asnumpy(primary_est)
-    primary_est = PatchOp * primary_est.ravel()
-    multiple_est = PatchOp * multiple_est.ravel()
-    primary_est = np.reshape(primary_est, (nr, nt))
-    multiple_est = np.reshape(multiple_est, (nr, nt))
+    primaries_est = PatchOp * primary_est.ravel()
+    multiples_est = PatchOp * multiple_est.ravel()
+    primaries_est = np.reshape(primaries_est, (nr, nt))
+    multiples_est = np.reshape(multiples_est, (nr, nt))
 
-    return primary_est, multiple_est, filt_est
+    return primaries_est, multiples_est, filts_est
 
 
 

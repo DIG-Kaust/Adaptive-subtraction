@@ -1,12 +1,13 @@
 import numpy as np
 import pylops
 import cupy as cp
+import multiprocessing as mp
 from pylops.utils.backend import get_array_module
 from pylops.optimization.solver import lsqr
-from ADMM import ADMM
-import multiprocessing as mp
+from adasubtraction.ADMM import ADMM
 
-def adaptive_subtraction(data_patched, multiples_patched, num_patches, nwin, solver, nfilt, solver_dict, clipping):
+
+def adaptive_subtraction(data_patched, multiples_patched, nwin, nwins, solver, nfilt, solver_dict, smooth_x, smooth_z, smooth_mults, clipping):
     ncp = get_array_module(multiples_patched)
 
     multiple_est = ncp.zeros_like(data_patched)
@@ -15,6 +16,8 @@ def adaptive_subtraction(data_patched, multiples_patched, num_patches, nwin, sol
     Data_Stack_NC = [] # NC stands for Non-Complete
 
     non_zero_patches = [] # Create a list to store the indexes of the patches with non_zero multiples
+
+    num_patches = nwins[0]*nwins[1]
     
     if multiples_patched.ndim == 3:
 
@@ -47,6 +50,44 @@ def adaptive_subtraction(data_patched, multiples_patched, num_patches, nwin, sol
         Data_Stack_NC = np.array(Data_Stack_NC).ravel()
         
         Mult_Diag_Stack = pylops.BlockDiag(Mult_Diag_Stack)  # construct Diagonal Matrix with the multi convolutional operators
+
+        if smooth_mults:   # Make filters of the same patch similar 
+        
+            if smooth_x and smooth_z:
+                Lop = pylops.Laplacian(dims=(m_num, nwins[0], nwins[1], nfilt), dirs=(0,1,2), weights=(1,1,1), sampling=(1,1,1)) # Laplacian operator
+                Mult_Diag_Stack = pylops.VStack([Mult_Diag_Stack, Lop]) # Stack the convolutional operators and the laplacian operator vertically
+                Data_Stack_NC = np.concatenate((Data_Stack_NC, np.zeros(Lop.shape[0]))) # Pad data with 0
+
+            elif smooth_x:
+                Lop = pylops.Laplacian(dims=(m_num, nwins[0], nwins[1], nfilt), dirs=(0,1)) 
+                Mult_Diag_Stack = pylops.VStack([Mult_Diag_Stack, Lop]) 
+                Data_Stack_NC = np.concatenate((Data_Stack_NC, np.zeros(Lop.shape[0]))) 
+            elif smooth_z:
+                Lop = pylops.Laplacian(dims=(m_num, nwins[0], nwins[1], nfilt), dirs=(0,2)) 
+                Mult_Diag_Stack = pylops.VStack([Mult_Diag_Stack, Lop]) 
+                Data_Stack_NC = np.concatenate((Data_Stack_NC, np.zeros(Lop.shape[0]))) 
+            else:
+                Lop = pylops.SecondDerivative(N = (m_num*nwins[0]*nwins[1]*nfilt), dims=(m_num, nwins[0], nwins[1], nfilt), dir=0) 
+                Mult_Diag_Stack = pylops.VStack([Mult_Diag_Stack, Lop]) 
+                Data_Stack_NC = np.concatenate((Data_Stack_NC, np.zeros(Lop.shape[0])))
+
+        
+        elif not smooth_mults:  # Allow filters of the same patch different
+
+            if smooth_x and smooth_z:
+                Lop = pylops.Laplacian(dims=(m_num, nwins[0], nwins[1], nfilt), dirs=(1,2), weights=(1,1), sampling=(1,1)) # Laplacian operator
+                Mult_Diag_Stack = pylops.VStack([Mult_Diag_Stack, Lop]) # Stack the convolutional operators and the laplacian operator vertically
+                Data_Stack_NC = np.concatenate((Data_Stack_NC, np.zeros(Lop.shape[0]))) # Pad data with 0
+
+            elif smooth_x:
+                Lop = pylops.SecondDerivative(N = (m_num*nwins[0]*nwins[1]*nfilt), dims=(m_num, nwins[0], nwins[1], nfilt), dir=1) 
+                Mult_Diag_Stack = pylops.VStack([Mult_Diag_Stack, Lop]) 
+                Data_Stack_NC = np.concatenate((Data_Stack_NC, np.zeros(Lop.shape[0]))) 
+            elif smooth_z:
+                Lop = pylops.SecondDerivative(N = (m_num*nwins[0]*nwins[1]*nfilt), dims=(m_num, nwins[0], nwins[1], nfilt), dir=2) 
+                Mult_Diag_Stack = pylops.VStack([Mult_Diag_Stack, Lop]) 
+                Data_Stack_NC = np.concatenate((Data_Stack_NC, np.zeros(Lop.shape[0]))) 
+
 
         # solve for the filter
         if solver == 'lsqr':
@@ -98,7 +139,21 @@ def adaptive_subtraction(data_patched, multiples_patched, num_patches, nwin, sol
         Data_Stack_NC = np.array(Data_Stack_NC).ravel()
         
         Mult_Diag_Stack = pylops.BlockDiag(Mult_Diag_Stack)  # construct Diagonal Matrix with the convolutional operators
-        print(Mult_Diag_Stack.shape)
+
+        if smooth_x and smooth_z:
+            Lop = pylops.Laplacian(dims=(nwins[0], nwins[1], nfilt), dirs=(0,1)) # Second derivative operator
+            Mult_Diag_Stack = pylops.VStack([Mult_Diag_Stack, Lop]) # Stack the convolutional operators and the laplacian operator vertically
+            Data_Stack_NC = np.concatenate((Data_Stack_NC, np.zeros(Lop.shape[0]))) # Pad data with 0
+
+        elif smooth_x:
+            Lop = pylops.SecondDerivative(N = (nwins[0]*nwins[1]*nfilt), dims=(nwins[0], nwins[1], nfilt), dir=0) # Second derivative operator
+            Mult_Diag_Stack = pylops.VStack([Mult_Diag_Stack, Lop])
+            Data_Stack_NC = np.concatenate((Data_Stack_NC, np.zeros(Lop.shape[0]))) 
+        elif smooth_z:
+            Lop = pylops.SecondDerivative(N = (nwins[0]*nwins[1]*nfilt), dims=(nwins[0], nwins[1], nfilt), dir=1)
+            Mult_Diag_Stack = pylops.VStack([Mult_Diag_Stack, Lop])
+            Data_Stack_NC = np.concatenate((Data_Stack_NC, np.zeros(Lop.shape[0]))) 
+       
         # solve for the filter  
         if solver=='lsqr':                
             filt_est_NC = lsqr(Mult_Diag_Stack, Data_Stack_NC, x0=ncp.asarray(solver_dict['x0']), niter=solver_dict['niter'], damp=solver_dict['damp'])[0]
@@ -118,30 +173,40 @@ def adaptive_subtraction(data_patched, multiples_patched, num_patches, nwin, sol
                 filt_est[n*nfilt : (n+1)*nfilt] = ncp.ones(nfilt)
 
         filt_est = filt_est.reshape((num_patches, nfilt))
+
     primary_est = (data_patched - multiple_est.T).T
                 
-    
     return primary_est, multiple_est, filt_est
 
-def adasubtraction_joint(data, multiples, nfilt, solver, solver_dict, nwin, clipping=False):
-    """Applies adaptive subtraction to all seismic gathers of a cube.
+def adasubtraction_joint(data, multiples, nfilt, solver, solver_dict, nwin, cpu_num, clipping=False, smooth_x=False, 
+                         smooth_z=False, smooth_mults=False):
+    """Applies adaptive subtraction to a shot gather using a joint optimization for all filters of the patches. Smoothing regularization between filters can be added. The input multiples can be three sequential predicted multiples.
 
             Parameters
             ----------
             data : :obj:`np.ndarray`
                 Total data shot gather
             multiples_init : :obj:`np.ndarray`
-                Initial estimated multiples
+                Initial predicted multiples. Can be a 3d or 2d np.array. If 3d, the multiples -i and +i 
+                predictions are stacked horizontally in the operator.
             nfilt : :obj:`int`
                 Size of the filter
             solver :{“lsqr”, “ADMM”}
                 Optimizer to find best filter
             solver_dict :obj:`dict`
-                Dictionary with solver parameters
+                Dictionary with solver parameters. See :func:`lsqr` and :func:`ADMM` for more information
             nwin : :obj:`tuple`, optional
                 Number of samples of window for patching data. Must be even numbers.
+            cpu_num : :obj:`int`
+                Total number of cpu cores employed
             clipping : :obj:`boolean`
                 Clip filters that exceed 10 to 1
+            smooth_x : :obj:`boolean`
+                Apply smoothing operator to horizontal filter axis
+            smooth_z : :obj:`boolean`
+                Apply smoothing operator to vertical filter axis
+            smooth_mults : :obj:`boolean`
+                Apply smoothing operator to multiples (3) filter axis 
 
             Returns
             -------
@@ -153,7 +218,7 @@ def adasubtraction_joint(data, multiples, nfilt, solver, solver_dict, nwin, clip
                 2d np.array with estimated filters
             Note
             -------
-            Processes are performed in parallel in the CPU.
+            Processes are performed in parallel with different CPU cores.
             """
 
     ncp = get_array_module(data)
@@ -199,15 +264,15 @@ def adasubtraction_joint(data, multiples, nfilt, solver, solver_dict, nwin, clip
         multiples_patched = PatchOpH.H * multiples.ravel()
         multiples_patched = ncp.reshape(multiples_patched, (num_patches, nwin[0] * nwin[1]))
 
-    nproc = 15
+    nproc = cpu_num
     pool = mp.Pool(processes=nproc)
     
     if multiples.ndim == 3:
-        out = pool.starmap(adaptive_subtraction, [(data_patched, multiples_patched, num_patches, nwin, solver, nfilt,
-                                                  solver_dict, clipping)])
+        out = pool.starmap(adaptive_subtraction, [(data_patched, multiples_patched, nwin, np.array(nwins), solver, nfilt,
+                                                  solver_dict, smooth_x, smooth_z, smooth_mults, clipping)])
     elif multiples.ndim == 2:
-        out = pool.starmap(adaptive_subtraction, [(data_patched, multiples_patched, num_patches, nwin, solver, nfilt,
-                                                  solver_dict, clipping)])
+        out = pool.starmap(adaptive_subtraction, [(data_patched, multiples_patched, nwin, np.array(nwins), solver, nfilt,
+                                                  solver_dict, smooth_x, smooth_z, smooth_mults, clipping)])
                                                    
     primary_est = out[0][0]
     primary_est = np.array(primary_est)
@@ -216,8 +281,7 @@ def adasubtraction_joint(data, multiples, nfilt, solver, solver_dict, nwin, clip
     filt_est = out[0][2]
     filt_est = np.array(filt_est)
 
-    # Glue the patches back together
-    # first put the arrays back on the CPU
+    # Glue the patches back together. First put the arrays back on the CPU
     multiple_est = cp.asnumpy(multiple_est)
     primary_est = cp.asnumpy(primary_est)
     primary_est = PatchOp * primary_est.ravel()
