@@ -2,26 +2,27 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.signal import correlate
 
-def adasubtraction_qc(data, primaries, gather_num, dt=0.004):
+def adasubtraction_qc(data, primaries, gather_num, dt=0.004, max_amp=0.25):
     """Estimate amplitude of multiples present in total data vs residual multiples in corrected primaries.
 
                Parameters
                ----------
                data : :obj:`np.ndarray`
-                   Total data gathers stored in a 3d arrayS
+                   Total data CCG
                primaries : :obj:`np.ndarray`
-                   Estimated primaries stored in a 3d array   
+                   Estimated primaries CCG  
                gather_num : :obj:`int`
-                   Number of CRG/CCG to do qc on
+                   Number of gather
                dt : :obj:`float`
-                   Time sampling interval of data in seconds
-
+                   Time sampling in seconds
+               max_amp : :obj:`float`
+                   Maximum amplitude to define first arrival
                Note
                -------
                This function plots the correlograms and stacked traces auto-correlations showing the multiples windows.
 
                """
-    ns, nr, nt = data.shape[0], data.shape[1], data.shape[2] # shots, receivers, time samples
+    ns, nt = data.shape[0], data.shape[1] # shots, receivers, time samples
     
     # Create multiples array to locate multiples arrivals
     multiples = data - primaries
@@ -31,16 +32,16 @@ def adasubtraction_qc(data, primaries, gather_num, dt=0.004):
     prim_corr_traces = np.zeros((ns, nt*2 -1))
 
     for i in range(ns):
-        data_corr_traces[i] = correlate(data[i,gather_num],data[i,gather_num])
-        prim_corr_traces[i] = correlate(primaries[i,gather_num],primaries[i,gather_num])
+        data_corr_traces[i] = correlate(data[i],data[i])
+        prim_corr_traces[i] = correlate(primaries[i],primaries[i])
 
     # Create a stacked correlated trace
     data_stack = sum(data_corr_traces)/ns
     prim_stack = sum(prim_corr_traces)/ns
     
     # Find first primary index over the ccg
-    first_prim = abs(primaries[:,gather_num,:])>np.max(abs(primaries[:,gather_num,:]))*0.25  # First arrival is stronger
-    inxs_p = np.zeros(first_prim.shape[0])                                                   # than 25% of the absolute max
+    first_prim = abs(primaries[:])>np.max(abs(primaries[:]))*max_amp # First arrival is stronger
+    inxs_p = np.zeros(first_prim.shape[0])                          # than 25% of the absolute max
     for i in range(first_prim.shape[0]):
         for j in range(first_prim.shape[1]):
             if first_prim[i,j]==True:
@@ -52,7 +53,7 @@ def adasubtraction_qc(data, primaries, gather_num, dt=0.004):
     time_prim = inxs_avg_p*dt
     
     # Find first multiple index over the ccg
-    first_mult = abs(multiples[:,gather_num,:])>np.max(abs(multiples[:,gather_num,:]))*0.25 # Boolean array 
+    first_mult = abs(multiples[:])>np.max(abs(multiples[:]))*max_amp # Boolean array 
     inxs_m = np.full(first_mult.shape[0], np.nan)
     for i in range(first_mult.shape[0]):  # iterate over traces
         for j in range(first_mult.shape[1]): # iterate over samples
@@ -135,5 +136,3 @@ def adasubtraction_qc(data, primaries, gather_num, dt=0.004):
     plt.suptitle(f'\nTotal data absolute average: {round(mult_avg,2)}\n\nPrimaries absolute average: {round(prim_avg,2)}', c='r')
    
     plt.tight_layout()
-    
-
