@@ -33,6 +33,8 @@ To create main environment, simply run:
 ./install_env.sh
 ```
 _Additionally, you will need to install pylops_37 env:_
+```
+
 ./install_pylops_37_env.sh
 ```
 It will take some time, if at the end you see the word `Done!` on your terminal you are ready to go. After that you can simply install your package:
