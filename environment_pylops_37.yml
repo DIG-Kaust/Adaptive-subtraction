@@ -1,0 +1,27 @@
+name: pylops_37
+channels:
+  - defaults
+  - conda-forge
+  - numba
+dependencies:
+  - python==3.7.5
+  - pip
+  - numpy==1.18.4
+  - scipy>=1.4.0
+  - matplotlib
+  - ipython
+  - jupyter
+  - pytest
+  - Sphinx
+  - numpydoc
+  - numba
+  - icc_rt
+  - pip:
+    - scikit-fmm
+    - spgl1
+    - pytest-runner
+    - setuptools_scm
+    - sphinx-rtd-theme
+    - sphinx-gallery
+    - nbsphinx
+    - image
