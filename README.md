@@ -1,6 +1,6 @@
 ![LOGO](https://github.com/DIG-Kaust/Adaptive-subtraction/blob/master/figures/logo.png)
 
-Reproducible material to perform adaptive subtraction to correct predicted multiples. Synthetic seismic data is modeled and multiples are predicted following the SRME method. We tried using an L1-L1 approach, where the optimization on the patched data is conducted by the ADMM. Additionally, the Curvelet Transform is used for demultiple.
+Reproducible material to perform adaptive subtraction to correct predicted multiples. Synthetic seismic data is modeled and multiples are predicted following the SRME method. We tried using an L1-L1 approach, where the optimization on the patched data is conducted by the ADMM. Additionally, the Curvelet Transform is used to separate primaries from multiples, and with 2 masking methods multiples are (better) supressed.
 
 ## Project structure
 This repository is organized as follows:
@@ -17,13 +17,13 @@ The following notebooks are provided:
 - :orange_book: ``Data_Modeling.ipynb``: notebook doing modeling of seismic data and primaries with ghosts with the Devito engine;
 - :orange_book: ``Multiples_Prediction.ipynb``: notebook carrying out multidimensional convolution with a full seismic data set to predict surface related multiples;
 - :orange_book: ``Adaptive_Subtraction.ipynb``: notebook performing adaptive subtraction on with the ADMM in a 1D example (as in Guitton and Verschuur, 2004), on synthetic seismic CSGs and on the Voring dataset;
-- :orange_book: ``Primary_Multiple_Curvelet_Separation.ipynb``: notebook generating masks with predicted multiples and conducting separation of primaries and multiples in the curvelet domain;
+- :file_folder: ``Primary_Multiple_Curvelet_Separation``: set of notebooks generating masks with predicted multiples and conducting separation of primaries and multiples in the curvelet domain. Three different cases are illustrated;
 
 ## Scripts
 The following scripts are provided:
 
-- :orange_book: ``model_data.py``: wrapper for seismic modeling of a full 2D dataset. Recommended to run this script on the terminal instead of running the code on the notebooks.
-- :orange_book: ``create_multiples.py``: wrapper for SRME prediction using MDC. Recommended to run this script on the terminal instead of running the code on the notebooks.
+- :page_with_curl: ``model_data.py``: wrapper for seismic modeling of a full 2D dataset. Recommended to run this script on the terminal instead of running the code on the notebooks.
+- :page_with_curl: ``create_multiples.py``: wrapper for SRME prediction using MDC. Recommended to run this script on the terminal instead of running the code on the notebooks.
 
 ## Getting started :space_invader: :robot:
 To ensure reproducibility of the results, we suggest using the `environment.yml` file when creating an environment. Note that for the notebook ``Primary_Multiple_Curvelet_Separation.ipynb`` is neccesary to use a different environment (instructions are provided).
