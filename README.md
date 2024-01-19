@@ -28,9 +28,12 @@ The following scripts are provided:
 ## Getting started :space_invader: :robot:
 To ensure reproducibility of the results, we suggest using the `environment.yml` file when creating an environment. Note that for the notebook ``Primary_Multiple_Curvelet_Separation.ipynb`` is neccesary to use a different environment (instructions are provided).
 
-Simply run:
+To create main environment, simply run:
 ```
 ./install_env.sh
+```
+_Additionally, you will need to install pylops_37 env:_
+./install_pylops_37_env.sh
 ```
 It will take some time, if at the end you see the word `Done!` on your terminal you are ready to go. After that you can simply install your package:
 ```
